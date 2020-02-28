@@ -1,6 +1,6 @@
 import numpy as np
-from itertools import product, count
-
+from itertools import product
+from functools import reduce
 
 class Solver():
 	def __init__(self, MAP):
@@ -10,17 +10,37 @@ class Solver():
 		self.rows = [set() for _ in range(9)]
 		self.cols = [set() for _ in range(9)]
 		self.blocks = [set() for _ in range(9)] # 番号は左上から右下
-		self.selections = np.array([[set([1, 2, 3, 4, 5, 6, 7, 8, 9])]*9 for _ in range(9)])
+		self.selections = np.array([[set([1, 2, 3, 4, 5, 6, 7, 8, 9])]*9 \
+									for _ in range(9)])
+		self.index = [np.ones(9, dtype=bool) for i in range(9)]
+		for i, index in enumerate(self.index):
+			index[i] = False
+
 		self.preprocessing()
 		
 	def preprocessing(self):
 		
-		# initialize
+		# initialize rows, cols and blocks
 		for i in range(9):
 			self.rows[i] = set(self.MAP[i])
 			self.cols[i] = set(self.MAP[:, i])
 			for j in range(9):
 				self.blocks[(i//3)*3+j//3].add(self.MAP[i, j])
+
+		# initialize selections
+		for i, j in product(range(9), repeat=2):
+			if self.MAP[i, j] != 0:
+				self.selections[i, j] = set()
+				continue
+			else:
+				sel = self.all_set - self.rows[i] \
+					- self.cols[j] - self.blocks[(i//3)*3+j//3]
+				if len(sel) == 1:
+					num = sel.pop()
+					self._setvalue(i, j, num)
+					self.selections[i, j] = {}
+				else:
+					self.selections[i, j] = sel
 
 		self._heuristic()
 
@@ -76,7 +96,43 @@ class Solver():
 						else:
 							self._removevalue(i, j, sel)
 			return False
-				
+
+	def _get_selection(self, i, j):
+		# 縦、横、ブロックで入る可能性のある数値
+		# return: 
+		sel = self.selections[i, j] - (self.rows[i] \
+							    | self.cols[j] | self.blocks[(i//3)*3+j//3])
+
+		self.selections[i, j] = sel
+		
+		if len(sel) == 1:
+			return True
+		
+		sel1 = sel - reduce(add_selection, \
+			self.selections[i, :][self.index[j]]) # 横
+
+		if len(sel1) == 1:
+			self.selections[i, j] = sel1
+			return True
+
+		sel2 = sel - reduce(add_selection, \
+			self.selections[:, j][self.index[i]]) # 縦
+
+		if len(sel2) == 1:
+			self.selections[i, j] = sel2
+			return True
+
+		bi = [(i//3)*3, (i//3+1)*3]
+		bj = [(j//3)*3, (j//3+1)*3]
+		
+		sel3 = sel - reduce(add_selection, \
+			self.selections[bi[0]:bi[1], bj[0]:bj[1]].flatten()[self.index[i%3+j%3]])
+
+		if len(sel3) == 1:
+			self.selections[i, j] = sel3
+			return True
+
+		return False
 
 	def _heuristic(self):
 
@@ -87,20 +143,20 @@ class Solver():
 					count += 1
 					continue
 				else:
-					sel = self.all_set - self.rows[i] \
-						- self.cols[j] - self.blocks[(i//3)*3+j//3]
-					if len(sel) == 1:
-						num = sel.pop()
-						self._setvalue(i, j, num)
-						self.selections[i, j] = {}
+					if self._get_selection(i, j):
+						self._setvalue(i, j, self.selections[i, j].pop())
 					else:
 						count += 1
-						self.selections[i, j] = sel
-
+						
 			if count == 81:
 				break
 			else:
 				count = 0
+
+
+def add_selection(a, b):
+	return a | b
+	
 	
 
 if __name__ == "__main__":
@@ -114,6 +170,7 @@ if __name__ == "__main__":
 	t1 = time()
 	s = Solver(MAP)
 	s.solve()
+	print(s.selections)
 	t2 = time()
 	print(s.MAP)
 	print(t2-t1)
