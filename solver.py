@@ -38,7 +38,7 @@ class Solver():
 				if len(sel) == 1:
 					num = sel.pop()
 					self._setvalue(i, j, num)
-					self.selections[i, j] = {}
+					self.selections[i, j] = set()
 				else:
 					self.selections[i, j] = sel
 
@@ -99,28 +99,35 @@ class Solver():
 
 	def _get_selection(self, i, j):
 		# 縦、横、ブロックで入る可能性のある数値
-		# return: 
+		# return:
+		is_detected = False
 		sel = self.selections[i, j] - (self.rows[i] \
 							    | self.cols[j] | self.blocks[(i//3)*3+j//3])
 
 		self.selections[i, j] = sel
 		
 		if len(sel) == 1:
-			return True
+			is_detected = True
 		
 		sel1 = sel - reduce(add_selection, \
 			self.selections[i, :][self.index[j]]) # 横
 
 		if len(sel1) == 1:
 			self.selections[i, j] = sel1
-			return True
+			is_detected = True
+		elif len(sel1) > 0:
+			self.selections[i, j] = self.selections[i, j] & sel1
+		
 
 		sel2 = sel - reduce(add_selection, \
 			self.selections[:, j][self.index[i]]) # 縦
 
 		if len(sel2) == 1:
 			self.selections[i, j] = sel2
-			return True
+			is_detected = True
+		elif len(sel2) > 0:
+			self.selections[i, j] = self.selections[i, j] & sel2
+			
 
 		bi = [(i//3)*3, (i//3+1)*3]
 		bj = [(j//3)*3, (j//3+1)*3]
@@ -130,9 +137,11 @@ class Solver():
 
 		if len(sel3) == 1:
 			self.selections[i, j] = sel3
-			return True
+			is_detected = True
+		elif len(sel3) > 0:
+			self.selections[i, j] = self.selections[i, j] & sel3
 
-		return False
+		return is_detected
 
 	def _heuristic(self):
 
@@ -169,7 +178,7 @@ if __name__ == "__main__":
 	print("----------------------------")
 	t1 = time()
 	s = Solver(MAP)
-	s.solve()
+	#s.solve()
 	print(s.selections)
 	t2 = time()
 	print(s.MAP)
