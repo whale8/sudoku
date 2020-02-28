@@ -43,6 +43,7 @@ class Solver():
 					self.selections[i, j] = sel
 
 		self._heuristic()
+		self._contradict()
 
 
 	def solve(self, name="backtracking"):
@@ -50,7 +51,7 @@ class Solver():
 			self._backtracking()
 		else:
 			pass
-
+		
 	def _setvalue(self, i, j, val):
 		self.MAP[i, j] = val
 		self.rows[i].add(val)
@@ -143,6 +144,34 @@ class Solver():
 
 		return is_detected
 
+	def _contradict(self, i=0, j=0):
+		for i, j in product(range(9), repeat=2):
+			if self.MAP[i, j] != 0:
+				continue
+			else:
+				sel = self.selections[i, j].copy()
+				for s in sel:
+					MAP = np.copy(self.MAP)
+					rows = np.copy(self.rows)
+					cols = np.copy(self.cols)
+					blocks = np.copy(self.blocks)
+					selections = np.copy(self.selections)
+					self.MAP[i, j] = s
+					if self._heuristic():
+						pass
+					else:
+						self.MAP = MAP
+						self.rows = rows
+						self.cols = cols
+						self.blocks = blocks
+						print(selections[i, j], s)
+						selections[i, j] = selections[i, j] - {s}
+						self.selections = selections
+						if len(self.selections[i, j]) == 1:
+							self.MAP[i, j] = self.selections[i,j].pop()
+							break
+						self._heuristic()
+	
 	def _heuristic(self):
 
 		count = 0
@@ -154,13 +183,17 @@ class Solver():
 				else:
 					if self._get_selection(i, j):
 						self._setvalue(i, j, self.selections[i, j].pop())
+					elif len(self.selections[i, j]) == 0:
+						return False
 					else:
 						count += 1
 						
 			if count == 81:
-				break
+				#break
+				return False
 			else:
 				count = 0
+		return True
 
 
 def add_selection(a, b):
